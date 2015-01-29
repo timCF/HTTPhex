@@ -53,6 +53,14 @@ defmodule Httphex do
         case __binq__( args, routes, host ) 
             |> HTTPoison.get(%{"Accept-Encoding" => "deflate, gzip"}, opts)
               |> Exutils.safe do
+          %HTTPoison.Response{status_code: 200, body: json} ->
+            handle_folsom_http(routes, begin, json)
+            begin = unquote(folsom_timer(macroopts))
+            case json |> :zlib.gunzip |> :jiffy.decode([:atom_keys, :return_maps, :use_nil]) |> Exutils.safe do
+              {:error, error} -> {:error, error}
+              res ->  handle_folsom_json(routes, begin)
+                      res
+            end   
           {:ok, %HTTPoison.Response{status_code: 200, body: json}} ->
             handle_folsom_http(routes, begin, json)
             begin = unquote(folsom_timer(macroopts))
@@ -76,6 +84,14 @@ defmodule Httphex do
         case __binq__( %{}, routes, host ) 
             |> HTTPoison.post(__encode_content__(content), %{"Accept-Encoding" => "deflate, gzip", "Content-type" => "application/json"}, opts)
               |> Exutils.safe do
+          %HTTPoison.Response{status_code: 200, body: json} ->
+            handle_folsom_http(routes, begin, json)
+            begin = unquote(folsom_timer(macroopts))
+            case json |> :zlib.gunzip |> :jiffy.decode([:atom_keys, :return_maps, :use_nil]) |> Exutils.safe do
+              {:error, error} -> {:error, error}
+              res ->  handle_folsom_json(routes, begin)
+                      res
+            end 
           {:ok, %HTTPoison.Response{status_code: 200, body: json}} ->
             handle_folsom_http(routes, begin, json)
             begin = unquote(folsom_timer(macroopts))
