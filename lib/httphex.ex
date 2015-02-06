@@ -21,14 +21,62 @@ defmodule Httphex do
   ##  operate with http queries  ###
   ##################################
 
-  import HttphexHelper
-
   defmacro __using__(macroopts) do
+
+    encode = case macroopts[:encode] in [:json, :none] do
+                true -> macroopts[:encode]
+                false -> 
+                  #case is_function(macroopts[:encode], 1) do
+                  case is_tuple(macroopts[:encode]) do
+                    true -> macroopts[:encode]
+                    false -> raise "#{__MODULE__} : plz define encoding using by default :json | :none | func"
+                  end
+              end
+
+    decode = case macroopts[:decode] in [:json, :none] do
+                true -> macroopts[:decode]
+                false -> 
+                  #case is_function(macroopts[:decode], 1) do
+                  #
+                  # TODO : how check func in AST???
+                  #
+                  case is_tuple(macroopts[:decode]) do
+                    true -> macroopts[:decode]
+                    false -> raise "#{__MODULE__} : plz define decoding using by default :json | :none | func"
+                  end
+              end
+
+    gunzip = case is_boolean(macroopts[:gzip]) do
+                true -> macroopts[:gzip]
+                false -> raise "#{__MODULE__} : plz define gzip flag"
+              end
+
+    def_headers_post = case {macroopts[:gzip], macroopts[:encode]} do
+                        {true, :json} -> quote do %{"Accept-Encoding" => "deflate, gzip", "Content-type" => "application/json"} end
+                        {true, _} -> quote do %{"Accept-Encoding" => "deflate, gzip"} end
+                        {false, :json} -> quote do %{"Content-type" => "application/json"} end
+                        {false, _} -> quote do  %{} end
+                      end
+    def_headers_get = case macroopts[:gzip] do
+                        false -> quote do %{} end
+                        true -> quote do %{"Accept-Encoding" => "deflate, gzip"} end
+                      end
+
+    def_host =  case macroopts[:host] do
+                  bin when is_binary(bin) -> bin
+                  _ -> raise "#{__MODULE__} : plz, define host in opts."
+                end
+    def_opts =  case macroopts[:opts] do
+                  lst when is_list(lst) -> lst
+                  _ -> raise "#{__MODULE__} : plz define settings using by default, example : [hackney: [basic_auth: {usr, psswd}]]"
+                end
+
+    def_settings_get = quote do %{host: unquote(def_host), opts: unquote(def_opts), headers: unquote(def_headers_get), gzip: unquote(gunzip), decode: unquote(decode)} end
+    def_settings_post = quote do %{host: unquote(def_host), opts: unquote(def_opts), headers: unquote(def_headers_post), encode: unquote(encode), gzip: unquote(gunzip), decode: unquote(decode)} end
+
     quote location: :keep do
-      
       require Exutils
       require Logger
-      use HttphexHelper, unquote(macroopts)
 
       defp __make_arg__({key, value}), do: "#{key}=#{URI.encode_www_form to_string(value)}"
       defp __make_args__(args), do: Map.to_list(args) |> Enum.map(&__make_arg__/1) |> Enum.join("&")
@@ -42,74 +90,74 @@ defmodule Httphex do
         end)
       end
 
+      defp not_null(setts, defs, key) do
+        case Map.get(setts, key) do
+          nil ->  case Map.get(defs, key) do
+                    nil -> raise "#{__MODULE__} : can't get #{inspect key} for http q"
+                    some -> some 
+                  end
+          some -> some
+        end
+      end
+
+
+      defp __uncomp_proc__(body, true), do: :zlib.gunzip(body)
+      defp __uncomp_proc__(body, false), do: body
+      defp __decode_proc__(body, :json), do: :jiffy.decode(body, [:atom_keys, :return_maps, :use_nil])
+      defp __decode_proc__(body, :none), do: body
+      defp __decode_proc__(body, func), do: func.(body)
+      defp __after_q__(body, gzip, decode), do: __uncomp_proc__(body, gzip) |> __decode_proc__(decode) |> Exutils.safe 
+
       # GET
 
-      defp http_get(args \\ %{}, routes \\ [], opts \\ unquote(def_opts(macroopts)), host \\ unquote(def_host(macroopts)))
-      defp http_get(args, routes, opts, host) when is_binary(routes) do
-        http_get(args, [routes], opts, host)
+      defp http_get(args \\ %{}, routes \\ [], settings \\ unquote(def_settings_get))
+      defp http_get(args, routes, settings) when is_binary(routes) do
+        http_get(args, [routes], settings)
       end
-      defp http_get(args, routes, opts, host) do
-        begin = unquote(folsom_timer(macroopts))
-        case __binq__( args, routes, host ) 
-            |> HTTPoison.get(%{"Accept-Encoding" => "deflate, gzip"}, opts)
-              |> Exutils.safe do
-          %HTTPoison.Response{status_code: 200, body: json} ->
-            handle_folsom_http(routes, begin, json)
-            begin = unquote(folsom_timer(macroopts))
-            case json |> :zlib.gunzip |> :jiffy.decode([:atom_keys, :return_maps, :use_nil]) |> Exutils.safe do
-              {:error, error} -> {:error, error}
-              res ->  handle_folsom_json(routes, begin)
-                      res
-            end   
-          {:ok, %HTTPoison.Response{status_code: 200, body: json}} ->
-            handle_folsom_http(routes, begin, json)
-            begin = unquote(folsom_timer(macroopts))
-            case json |> :zlib.gunzip |> :jiffy.decode([:atom_keys, :return_maps, :use_nil]) |> Exutils.safe do
-              {:error, error} -> {:error, error}
-              res ->  handle_folsom_json(routes, begin)
-                      res
-            end
+      defp http_get(args, routes, settings) do
+
+        host = not_null(settings, unquote(def_settings_get), :host)
+        opts = not_null(settings, unquote(def_settings_get), :opts)
+        headers = not_null(settings, unquote(def_settings_get), :headers)
+        gzip = not_null(settings, unquote(def_settings_get), :gzip)
+        decode = not_null(settings, unquote(def_settings_get), :decode)
+
+        case __binq__( args, routes, host ) |> HTTPoison.get(headers, opts) |> Exutils.safe do
+          %HTTPoison.Response{status_code: 200, body: body} ->        __after_q__(body, gzip, decode) 
+          {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode)
           error -> {:error, error}
         end
       end
 
       # POST
 
-      defp http_post(content, routes \\ [], opts \\ unquote(def_opts(macroopts)), host \\ unquote(def_host(macroopts)))
-      defp http_post(content, routes, opts, host) when is_binary(routes) do
-        http_post(content, [routes], opts, host)
+      defp __encode_content__(content, :json), do: :jiffy.encode(content)
+      defp __encode_content__(content, :none), do: content
+
+      defp __encode_content__(content) when is_binary(content), do: content
+
+
+      defp http_post(content, routes \\ [], settings \\ unquote(def_settings_post))
+      defp http_post(content, routes, settings) when is_binary(routes) do
+        http_post(content, [routes], settings)
       end
-      defp http_post(content, routes, opts, host) do
-        begin = unquote(folsom_timer(macroopts))
+      defp http_post(content, routes, settings) do
+
+        host = not_null(settings, unquote(def_settings_post), :host)
+        opts = not_null(settings, unquote(def_settings_post), :opts)
+        headers = not_null(settings, unquote(def_settings_post), :headers)
+        encode = not_null(settings, unquote(def_settings_post), :encode)
+        gzip = not_null(settings, unquote(def_settings_post), :gzip)
+        decode = not_null(settings, unquote(def_settings_post), :decode)
+
         case __binq__( %{}, routes, host ) 
-            |> HTTPoison.post(__encode_content__(content), %{"Accept-Encoding" => "deflate, gzip", "Content-type" => "application/json"}, opts)
-              |> Exutils.safe do
-          %HTTPoison.Response{status_code: 200, body: json} ->
-            handle_folsom_http(routes, begin, json)
-            begin = unquote(folsom_timer(macroopts))
-            case json |> :zlib.gunzip |> :jiffy.decode([:atom_keys, :return_maps, :use_nil]) |> Exutils.safe do
-              {:error, error} -> {:error, error}
-              res ->  handle_folsom_json(routes, begin)
-                      res
-            end 
-          {:ok, %HTTPoison.Response{status_code: 200, body: json}} ->
-            handle_folsom_http(routes, begin, json)
-            begin = unquote(folsom_timer(macroopts))
-            case json |> :zlib.gunzip |> :jiffy.decode([:atom_keys, :return_maps, :use_nil]) |> Exutils.safe do
-              {:error, error} -> {:error, error}
-              res ->  handle_folsom_json(routes, begin)
-                      res
-            end
+              |> HTTPoison.post(__encode_content__(content, encode), headers, opts)
+                |> Exutils.safe do
+          %HTTPoison.Response{status_code: 200, body: body} ->        __after_q__(body, gzip, decode) 
+          {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode) 
           error -> {:error, error}
         end
       end
-      defp __encode_content__(content) when (is_list(content) or is_map(content)), do: :jiffy.encode(content)
-      defp __encode_content__(content) when is_binary(content), do: content
-      
-
-      defp routes_postfix(_), do: "other"
-
-      defoverridable [routes_postfix: 1]
 
     end
   end
