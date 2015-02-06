@@ -133,8 +133,7 @@ defmodule Httphex do
 
       defp __encode_content__(content, :json), do: :jiffy.encode(content)
       defp __encode_content__(content, :none), do: content
-
-      defp __encode_content__(content) when is_binary(content), do: content
+      defp __encode_content__(content, func), do: func.(content)
 
 
       defp http_post(content, routes \\ [], settings \\ unquote(def_settings_post))
