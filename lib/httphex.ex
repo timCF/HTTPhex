@@ -106,7 +106,16 @@ defmodule Httphex do
       defp __decode_proc__(body, :json), do: :jiffy.decode(body, [:atom_keys, :return_maps, :use_nil])
       defp __decode_proc__(body, :none), do: body
       defp __decode_proc__(body, func), do: func.(body)
-      defp __after_q__(body, gzip, decode), do: __uncomp_proc__(body, gzip) |> __decode_proc__(decode) |> Exutils.safe 
+      defp __after_q__(body, gzip, decode, routes) do 
+        {time, res} = :timer.tc(fn() -> __uncomp_proc__(body, gzip) |> __apply_body_callback__(routes) |> __decode_proc__(decode) |> Exutils.safe end)
+        time_decode_callback(routes, div(time, 1000))
+        res
+      end
+      defp __apply_body_callback__(body, routes) do
+        body_callback(routes, body)
+        body
+      end
+
 
       # GET
 
@@ -122,9 +131,11 @@ defmodule Httphex do
         gzip = not_null(settings, unquote(def_settings_get), :gzip)
         decode = not_null(settings, unquote(def_settings_get), :decode)
 
-        case __binq__( args, routes, host ) |> HTTPoison.get(headers, opts) |> Exutils.safe do
-          %HTTPoison.Response{status_code: 200, body: body} ->        __after_q__(body, gzip, decode) 
-          {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode)
+        {time, ans_data} = :timer.tc(fn() -> __binq__( args, routes, host ) |> HTTPoison.get(headers, opts) |> Exutils.safe end)
+        time_http_callback(routes, div(time, 1000))
+        case ans_data do
+          %HTTPoison.Response{status_code: 200, body: body} ->        __after_q__(body, gzip, decode, routes) 
+          {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode, routes)
           error -> {:error, error}
         end
       end
@@ -149,14 +160,24 @@ defmodule Httphex do
         gzip = not_null(settings, unquote(def_settings_post), :gzip)
         decode = not_null(settings, unquote(def_settings_post), :decode)
 
-        case __binq__( %{}, routes, host ) 
-              |> HTTPoison.post(__encode_content__(content, encode), headers, opts)
-                |> Exutils.safe do
-          %HTTPoison.Response{status_code: 200, body: body} ->        __after_q__(body, gzip, decode) 
-          {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode) 
+        {time, ans_data} = :timer.tc(fn() -> __binq__( %{}, routes, host ) |> HTTPoison.post(__encode_content__(content, encode), headers, opts) |> Exutils.safe end)
+        time_http_callback(routes, div(time, 1000))
+        case ans_data do
+          %HTTPoison.Response{status_code: 200, body: body} ->        __after_q__(body, gzip, decode, routes) 
+          {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode, routes) 
           error -> {:error, error}
         end
       end
+
+      #
+      # by default, callbacks do nothing, it's overridable
+      #
+
+      defp time_http_callback(_routes, _time), do: nil
+      defp time_decode_callback(_routes, _time), do: nil
+      defp body_callback(_routes, _body), do: nil
+
+      defoverridable [time_http_callback: 2, time_decode_callback: 2, body_callback: 2]
 
     end
   end
