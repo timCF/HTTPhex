@@ -27,7 +27,7 @@ defmodule Httphex do
                 true -> macroopts[:encode]
                 false -> 
                   #case is_function(macroopts[:encode], 1) do
-                  case is_tuple(macroopts[:encode]) do
+                  case is_tuple(macroopts[:encode]) or is_function(macroopts[:encode], 1) do
                     true -> macroopts[:encode]
                     false -> raise "#{__MODULE__} : plz define encoding using by default :json | :none | func"
                   end
@@ -40,7 +40,7 @@ defmodule Httphex do
                   #
                   # TODO : how check func in AST???
                   #
-                  case is_tuple(macroopts[:decode]) do
+                  case is_tuple(macroopts[:decode]) or is_function(macroopts[:decode], 1) do
                     true -> macroopts[:decode]
                     false -> raise "#{__MODULE__} : plz define decoding using by default :json | :none | func"
                   end
