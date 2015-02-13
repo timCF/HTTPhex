@@ -17,7 +17,7 @@ defmodule Httphex.Mixfile do
                       :exutils,
                       :httpoison,
                       :folsom,
-                      :jiffy
+                      :jazz
                     ],
      mod: {Httphex, []}]
   end
@@ -36,7 +36,7 @@ defmodule Httphex.Mixfile do
       {:exutils, github: "timCF/exutils"},
       {:httpoison, github: "edgurgel/httpoison"},
       {:folsom, github: "boundary/folsom"},
-      {:jiffy, github: "SkAZi/jiffy"}
+      {:jazz, github: "meh/jazz"}
     ]
   end
 end

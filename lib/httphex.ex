@@ -103,16 +103,16 @@ defmodule Httphex do
 
       defp __uncomp_proc__(body, true), do: :zlib.gunzip(body)
       defp __uncomp_proc__(body, false), do: body
-      defp __decode_proc__(body, :json), do: :jiffy.decode(body, [:atom_keys, :return_maps, :use_nil])
+      defp __decode_proc__(body, :json), do: Jazz.decode!(body, [keys: :atoms])
       defp __decode_proc__(body, :none), do: body
       defp __decode_proc__(body, func), do: func.(body)
       defp __after_q__(body, gzip, decode, routes) do 
         {time, res} = :timer.tc(fn() -> __uncomp_proc__(body, gzip) |> __apply_body_callback__(routes) |> __decode_proc__(decode) |> Exutils.safe end)
-        time_decode_callback(routes, div(time, 1000))
+        spawn_link fn() -> time_decode_callback(routes, div(time, 1000)) end
         res
       end
       defp __apply_body_callback__(body, routes) do
-        body_callback(routes, body)
+        spawn_link fn() -> body_callback(routes, body) end
         body
       end
 
@@ -132,7 +132,7 @@ defmodule Httphex do
         decode = not_null(settings, unquote(def_settings_get), :decode)
 
         {time, ans_data} = :timer.tc(fn() -> __binq__( args, routes, host ) |> HTTPoison.get(headers, opts) |> Exutils.safe end)
-        time_http_callback(routes, div(time, 1000))
+        spawn_link fn() -> time_http_callback(routes, div(time, 1000)) end
         case ans_data do
           %HTTPoison.Response{status_code: 200, body: body} ->        __after_q__(body, gzip, decode, routes) 
           {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode, routes)
@@ -142,7 +142,7 @@ defmodule Httphex do
 
       # POST
 
-      defp __encode_content__(content, :json), do: :jiffy.encode(content)
+      defp __encode_content__(content, :json), do: Jazz.encode!(content)
       defp __encode_content__(content, :none), do: content
       defp __encode_content__(content, func), do: func.(content)
 
@@ -161,7 +161,7 @@ defmodule Httphex do
         decode = not_null(settings, unquote(def_settings_post), :decode)
 
         {time, ans_data} = :timer.tc(fn() -> __binq__( %{}, routes, host ) |> HTTPoison.post(__encode_content__(content, encode), headers, opts) |> Exutils.safe end)
-        time_http_callback(routes, div(time, 1000))
+        spawn_link fn() -> time_http_callback(routes, div(time, 1000)) end
         case ans_data do
           %HTTPoison.Response{status_code: 200, body: body} ->        __after_q__(body, gzip, decode, routes) 
           {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode, routes) 
