@@ -5,7 +5,8 @@ defmodule HttphexTest do
         					opts: [],
         					encode: :none, # here can be lambda
         					decode: :json, # here can be lambda
-                  gzip: false
+                  			gzip: false,
+                  			client: :httpotion
         				]
 
   test "get err from vk.com" do

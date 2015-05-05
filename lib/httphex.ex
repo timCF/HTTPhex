@@ -38,7 +38,7 @@ defmodule Httphex do
                 false -> 
                   #case is_function(macroopts[:decode], 1) do
                   #
-                  # TODO : how check func in AST???
+                  # 	TODO : how check func in AST???
                   #
                   case is_tuple(macroopts[:decode]) or is_function(macroopts[:decode], 1) do
                     true -> macroopts[:decode]
@@ -73,6 +73,31 @@ defmodule Httphex do
 
     def_settings_get = quote do %{host: unquote(def_host), opts: unquote(def_opts), headers: unquote(def_headers_get), gzip: unquote(gunzip), decode: unquote(decode)} end
     def_settings_post = quote do %{host: unquote(def_host), opts: unquote(def_opts), headers: unquote(def_headers_post), encode: unquote(encode), gzip: unquote(gunzip), decode: unquote(decode)} end
+
+	get_call_process = case macroopts[:client] do
+		:httpoison -> quote do HTTPoison.get(headers, opts) end
+		:httpotion -> quote do HTTPotion.get(Dict.put(opts, :headers, headers)) end
+	end
+	get_call_parse = case macroopts[:client] do
+		:httpoison -> quote do 
+						case ans_data do
+				          %HTTPoison.Response{status_code: 200, body: body} -> __after_q__(body, gzip, decode, routes) 
+				          {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode, routes)
+				          error -> {:error, error}
+					    end
+					  end
+		:httpotion -> quote do 
+						case ans_data do
+							%HTTPotion.Response{body: body, status_code: 200} -> __after_q__(body, gzip, decode, routes)
+							error -> {:error, error}
+						end
+					 end
+	end
+
+	post_call_process = case macroopts[:client] do
+		:httpoison -> quote do HTTPoison.post(__encode_content__(content, encode), headers, opts) end
+		:httpotion -> quote do HTTPotion.post(Dict.put(opts, :body, __encode_content__(content, encode)) |> Dict.put(:headers, headers)) end
+	end
 
     quote location: :keep do
       require Exutils
@@ -131,13 +156,9 @@ defmodule Httphex do
         gzip = not_null(settings, unquote(def_settings_get), :gzip)
         decode = not_null(settings, unquote(def_settings_get), :decode)
 
-        {time, ans_data} = :timer.tc(fn() -> __binq__( args, routes, host ) |> HTTPoison.get(headers, opts) |> Exutils.safe end)
+        {time, ans_data} = :timer.tc(fn() -> __binq__( args, routes, host ) |> unquote(get_call_process) |> Exutils.safe end)
         spawn_link fn() -> time_http_callback(routes, div(time, 1000)) end
-        case ans_data do
-          %HTTPoison.Response{status_code: 200, body: body} ->        __after_q__(body, gzip, decode, routes) 
-          {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode, routes)
-          error -> {:error, error}
-        end
+        unquote(get_call_parse)
       end
 
       # POST
@@ -160,13 +181,9 @@ defmodule Httphex do
         gzip = not_null(settings, unquote(def_settings_post), :gzip)
         decode = not_null(settings, unquote(def_settings_post), :decode)
 
-        {time, ans_data} = :timer.tc(fn() -> __binq__( %{}, routes, host ) |> HTTPoison.post(__encode_content__(content, encode), headers, opts) |> Exutils.safe end)
+        {time, ans_data} = :timer.tc(fn() -> __binq__( %{}, routes, host ) |> unquote(post_call_process) |> Exutils.safe end)
         spawn_link fn() -> time_http_callback(routes, div(time, 1000)) end
-        case ans_data do
-          %HTTPoison.Response{status_code: 200, body: body} ->        __after_q__(body, gzip, decode, routes) 
-          {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode, routes) 
-          error -> {:error, error}
-        end
+        unquote(get_call_parse)
       end
 
       #
