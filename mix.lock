@@ -7,7 +7,7 @@
   "hashex": {:git, "git://github.com/timCF/hashex.git", "cc6b4307daa1ab18c94cdd33bf3cb8a3dab28b96", []},
   "httpoison": {:git, "git://github.com/edgurgel/httpoison.git", "0906bf4c6a83a4007d8abd8004f325b9339be18c", []},
   "httpotion": {:hex, :httpotion, "2.0.0"},
-  "ibrowse": {:git, "git://github.com/cmullaparthi/ibrowse.git", "d2e369ff42666c3574b8b7ec26f69027895c4d94", [tag: "v4.1.1"]},
+  "ibrowse": {:git, "git://github.com/cmullaparthi/ibrowse.git", "5ee4a806611fcf25cc74155871571e9983a0d0fc", [tag: "5ee4a806611fcf25cc74155871571e9983a0d0fc"]},
   "idna": {:hex, :idna, "1.0.1"},
   "jazz": {:git, "git://github.com/meh/jazz.git", "49f335492aca5516495199dd81dd18b845ebaa69", []},
   "jiffy": {:git, "git://github.com/SkAZi/jiffy.git", "39927fedfd94980981d70eeb560601abe278c8c6", []},

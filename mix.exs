@@ -39,7 +39,7 @@ defmodule Httphex.Mixfile do
       {:httpoison, github: "edgurgel/httpoison"},
       {:folsom, github: "boundary/folsom"},
       {:jazz, github: "meh/jazz"},
-      {:ibrowse, github: "cmullaparthi/ibrowse", tag: "v4.1.1"},
+      {:ibrowse, github: "cmullaparthi/ibrowse", tag: "5ee4a806611fcf25cc74155871571e9983a0d0fc", override: true},
       {:httpotion, "~> 2.0.0"}
     ]
   end
