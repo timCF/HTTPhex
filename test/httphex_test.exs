@@ -5,8 +5,9 @@ defmodule HttphexTest do
         					opts: [],
         					encode: :none, # here can be lambda
         					decode: :json, # here can be lambda
-                  			gzip: false,
-                  			client: :httpotion
+                  gzip: false,
+                  client: :httpoison,
+                  timeout: :infinity
         				]
 
   test "get err from vk.com" do
@@ -15,6 +16,10 @@ defmodule HttphexTest do
 
   test "get users profiles from vk.com" do
     assert (http_get(%{user_ids: "1785932,43214"}, ["method","users.get"]) |> IO.inspect |> is_map) == true
+  end
+
+  test "fail on timeout" do
+    assert (http_get(%{user_ids: "1785932,43214"}, ["method","users.get"], %{timeout: 1}) |> IO.inspect |> elem(0)) == :error
   end
 
   defp time_http_callback(routes, time) do

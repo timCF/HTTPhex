@@ -70,9 +70,13 @@ defmodule Httphex do
                   lst when is_list(lst) -> lst
                   _ -> raise "#{__MODULE__} : plz define settings using by default, example : [hackney: [basic_auth: {usr, psswd}]]"
                 end
+    def_timeout = case macroopts[:timeout] do
+                    int when ((is_integer(int) and (int >= 0)) or (int == :infinity)) -> int
+                    _ -> raise "#{__MODULE__} : plz define timeout by default"
+                  end
 
-    def_settings_get = quote do %{host: unquote(def_host), opts: unquote(def_opts), headers: unquote(def_headers_get), gzip: unquote(gunzip), decode: unquote(decode)} end
-    def_settings_post = quote do %{host: unquote(def_host), opts: unquote(def_opts), headers: unquote(def_headers_post), encode: unquote(encode), gzip: unquote(gunzip), decode: unquote(decode)} end
+    def_settings_get = quote do %{host: unquote(def_host), opts: unquote(def_opts), headers: unquote(def_headers_get), gzip: unquote(gunzip), decode: unquote(decode), timeout: unquote(def_timeout)} end
+    def_settings_post = quote do %{host: unquote(def_host), opts: unquote(def_opts), headers: unquote(def_headers_post), encode: unquote(encode), gzip: unquote(gunzip), decode: unquote(decode), timeout: unquote(def_timeout)} end
 
 	get_call_process = case macroopts[:client] do
 		:httpoison -> quote do HTTPoison.get(headers, opts) end
@@ -81,14 +85,14 @@ defmodule Httphex do
 	get_call_parse = case macroopts[:client] do
 		:httpoison -> quote do 
 						case ans_data do
-				          %HTTPoison.Response{status_code: 200, body: body} -> __after_q__(body, gzip, decode, routes) 
-				          {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode, routes)
+				          %HTTPoison.Response{status_code: 200, body: body} -> __after_q__(body, gzip, decode, routes, timeout) 
+				          {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> __after_q__(body, gzip, decode, routes, timeout)
 				          error -> {:error, error}
 					    end
 					  end
 		:httpotion -> quote do 
 						case ans_data do
-							%HTTPotion.Response{body: body, status_code: 200} -> __after_q__(body, gzip, decode, routes)
+							%HTTPotion.Response{body: body, status_code: 200} -> __after_q__(body, gzip, decode, routes, timeout)
 							error -> {:error, error}
 						end
 					 end
@@ -131,8 +135,8 @@ defmodule Httphex do
       defp __decode_proc__(body, :json), do: Jazz.decode!(body, [keys: :atoms])
       defp __decode_proc__(body, :none), do: body
       defp __decode_proc__(body, func), do: func.(body)
-      defp __after_q__(body, gzip, decode, routes) do 
-        {time, res} = :timer.tc(fn() -> __uncomp_proc__(body, gzip) |> __apply_body_callback__(routes) |> __decode_proc__(decode) |> Exutils.safe end)
+      defp __after_q__(body, gzip, decode, routes, timeout) do 
+        {time, res} = :timer.tc(fn() -> __uncomp_proc__(body, gzip) |> __apply_body_callback__(routes) |> __decode_proc__(decode) |> Exutils.safe(timeout) end)
         spawn_link fn() -> time_decode_callback(routes, div(time, 1000)) end
         res
       end
@@ -155,8 +159,9 @@ defmodule Httphex do
         headers = not_null(settings, unquote(def_settings_get), :headers)
         gzip = not_null(settings, unquote(def_settings_get), :gzip)
         decode = not_null(settings, unquote(def_settings_get), :decode)
+        timeout = not_null(settings, unquote(def_settings_get), :timeout)
 
-        {time, ans_data} = :timer.tc(fn() -> __binq__( args, routes, host ) |> unquote(get_call_process) |> Exutils.safe end)
+        {time, ans_data} = :timer.tc(fn() -> __binq__( args, routes, host ) |> unquote(get_call_process) |> Exutils.safe(timeout) end)
         spawn_link fn() -> time_http_callback(routes, div(time, 1000)) end
         unquote(get_call_parse)
       end
@@ -180,8 +185,9 @@ defmodule Httphex do
         encode = not_null(settings, unquote(def_settings_post), :encode)
         gzip = not_null(settings, unquote(def_settings_post), :gzip)
         decode = not_null(settings, unquote(def_settings_post), :decode)
+        timeout = not_null(settings, unquote(def_settings_get), :timeout)
 
-        {time, ans_data} = :timer.tc(fn() -> __binq__( %{}, routes, host ) |> unquote(post_call_process) |> Exutils.safe end)
+        {time, ans_data} = :timer.tc(fn() -> __binq__( %{}, routes, host ) |> unquote(post_call_process) |> Exutils.safe(timeout) end)
         spawn_link fn() -> time_http_callback(routes, div(time, 1000)) end
         unquote(get_call_parse)
       end

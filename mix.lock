@@ -1,7 +1,7 @@
 %{"bear": {:git, "git://github.com/boundary/bear.git", "119234548783af19b8ec75c879c5062676b92571", [tag: "0.8.2"]},
   "exactor": {:git, "git://github.com/sasa1977/exactor.git", "0467f8100bc735405d597dbf94996195eb31e0b6", [tag: "0467f8100bc735405d597dbf94996195eb31e0b6"]},
   "extask": {:git, "git://github.com/timCF/extask.git", "691cc1a515750bead8b81ed6c13cddbcf115d754", []},
-  "exutils": {:git, "git://github.com/timCF/exutils.git", "636ca20b1f6788612269a2edda99d47d58bf29b7", []},
+  "exutils": {:git, "git://github.com/timCF/exutils.git", "d38fc711ee391bcc88329c0dc22cf6547ca06c27", []},
   "folsom": {:git, "git://github.com/boundary/folsom.git", "38e2cce7c64ce1f0a3a918d90394cfc0a940b1ba", []},
   "hackney": {:hex, :hackney, "1.0.5"},
   "hashex": {:git, "git://github.com/timCF/hashex.git", "cc6b4307daa1ab18c94cdd33bf3cb8a3dab28b96", []},
@@ -12,4 +12,6 @@
   "jazz": {:git, "git://github.com/meh/jazz.git", "49f335492aca5516495199dd81dd18b845ebaa69", []},
   "jiffy": {:git, "git://github.com/SkAZi/jiffy.git", "39927fedfd94980981d70eeb560601abe278c8c6", []},
   "meck": {:git, "git://github.com/eproxus/meck", "dde759050eff19a1a80fd854d7375174b191665d", [tag: "0.8.2"]},
-  "ssl_verify_hostname": {:hex, :ssl_verify_hostname, "1.0.0"}}
+  "quickrand": {:hex, :quickrand, "1.5.0"},
+  "ssl_verify_hostname": {:hex, :ssl_verify_hostname, "1.0.0"},
+  "uuid": {:git, "git://github.com/okeuday/uuid.git", "31f408f4efc072be42da12cd45001e80ea60360e", []}}
